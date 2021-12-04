@@ -164,21 +164,15 @@ impl FrameDescrChain {
         self.fd.create_local_slot(name)
     }
 
-    // Oops, borrowck bug (rust-lang/rfcs#811)...
-    // Fortunately Edward has a solution here:
-    // http://blog.ezyang.com/2013/12/two-bugs-in-the-borrow-checker-every-rust-developer-should-know-about/
-    pub fn lookup_slot(&mut self, name: &Id) -> Option<&Slot> {
-        if let x @ Some(_) = unsafe { &mut *(self as *mut Self) }.fd.lookup_slot(name) {
-            return x;
+    pub fn lookup_slot(&mut self, name: &Id) -> Option<Slot> {
+        if let x @ Some(_) = self.fd.lookup_slot(name) {
+            return x.cloned();
         }
 
-        match self.outer() {
-            Some(outer) => {
-                if let Some(outer_slot) = outer.lookup_slot(name) {
-                    return Some(self.fd.create_upval_slot(name.to_owned(), outer_slot.to_owned()));
-                }
+        if let Some(outer) = self.outer() {
+            if let Some(outer_slot) = outer.lookup_slot(name) {
+                return Some(self.fd.create_upval_slot(name.to_owned(), outer_slot.to_owned())).cloned();
             }
-            _ => (),
         }
 
         None
@@ -313,63 +307,63 @@ impl Traverse for RawNode {
     fn traverse<E, T: NodeTraverser<E>>(&mut self, t: &mut T) -> Result<(), E> {
         use self::TraversalDirection::*;
 
-        let direction = try!(t.before(self));
+        let direction = t.before(self)?;
         match direction {
             Forward => {
                 match self {
                     &mut NReadArrayLength(ref mut n) |
                     &mut NReadBox(ref mut n) |
                     &mut NPrimO(_, ref mut n) => {
-                        try!(n.traverse(t));
+                        n.traverse(t)?;
                     }
 
-                    &mut NAlloc(ref mut n) => try!(n.traverse(t)),
+                    &mut NAlloc(ref mut n) => n.traverse(t)?,
 
                     &mut NWriteBox(ref mut n1, ref mut n2) |
                     &mut NReadOopArray(ref mut n1, ref mut n2) |
                     &mut NReadI64Array(ref mut n1, ref mut n2) |
                     &mut NPrimFF(_, ref mut n1, ref mut n2) => {
-                        try!(n1.traverse(t));
-                        try!(n2.traverse(t));
+                        n1.traverse(t)?;
+                        n2.traverse(t)?;
                     }
 
                     &mut NWriteOopArray(ref mut n1, ref mut n2, ref mut n3) |
                     &mut NWriteI64Array(ref mut n1, ref mut n2, ref mut n3) => {
-                        try!(n1.traverse(t));
-                        try!(n2.traverse(t));
-                        try!(n3.traverse(t));
+                        n1.traverse(t)?;
+                        n2.traverse(t)?;
+                        n3.traverse(t)?;
                     }
 
                     &mut NCall { ref mut func, ref mut args, .. } => {
-                        try!(func.traverse(t));
+                        func.traverse(t)?;
                         for arg in args {
-                            try!(arg.traverse(t));
+                            arg.traverse(t)?;
                         }
                     }
                     &mut NIf { ref mut cond, ref mut on_true, ref mut on_false } => {
-                        try!(cond.traverse(t));
-                        try!(on_true.traverse(t));
-                        try!(on_false.traverse(t));
+                        cond.traverse(t)?;
+                        on_true.traverse(t)?;
+                        on_false.traverse(t)?;
                     }
                     &mut NSeq(ref mut ns, ref mut n) => {
                         for n in ns {
-                            try!(n.traverse(t));
+                            n.traverse(t)?;
                         }
-                        try!(n.traverse(t));
+                        n.traverse(t)?;
                     }
 
                     &mut NBindLocal(ref mut bs, ref mut n) => {
                         for &mut (_, ref mut b) in bs {
-                            try!(b.traverse(t));
+                            b.traverse(t)?;
                         }
-                        try!(n.traverse(t));
+                        n.traverse(t)?;
                     }
 
                     &mut NRecBindLocal(ref mut bs, ref mut n) => {
                         for &mut (_, ref mut b) in bs {
-                            try!(b.traverse(t));
+                            b.traverse(t)?;
                         }
-                        try!(n.traverse(t));
+                        n.traverse(t)?;
                     }
 
                     &mut NLit(..) |
@@ -392,7 +386,7 @@ impl Traverse for AllocNode {
             &mut MkPair(ref mut n1, ref mut n2) |
             &mut MkOopArray(ref mut n1, ref mut n2) |
             &mut MkI64Array(ref mut n1, ref mut n2) => {
-                try!(n1.traverse(t));
+                n1.traverse(t)?;
                 n2.traverse(t)
             }
             &mut MkClosure(..) => Ok(()),
@@ -411,9 +405,9 @@ pub fn new_call(func: RawNode, args: NodeList, is_tail: bool) -> RawNode {
 
 pub fn new_if(cond: RawNode, on_true: RawNode, on_false: RawNode) -> RawNode {
     NIf {
-        cond: box cond,
-        on_true: box on_true,
-        on_false: box on_false,
+        cond: Box::new(cond),
+        on_true: Box::new(on_true),
+        on_false: Box::new(on_false),
     }
 }
 

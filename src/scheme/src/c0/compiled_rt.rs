@@ -8,7 +8,8 @@ pub unsafe extern "C" fn display_oop(oop: Oop, u: &Universe) {
     println!("{}", FmtOop(oop, u));
 }
 
-pub unsafe extern "C" fn eval_oop(oop: Oop, u: &Universe) -> Oop {
+#[allow(unused)]
+pub unsafe extern "C" fn eval_oop(_oop: Oop, _u: &Universe) -> Oop {
     panic!("eval_oop")
 }
 

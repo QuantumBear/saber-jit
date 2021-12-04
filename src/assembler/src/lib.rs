@@ -1,7 +1,8 @@
 extern crate mmap;
 extern crate byteorder;
+extern crate num;
 
-#[cfg(test)]
+#[cfg(bench)]
 extern crate test;
 
 extern crate tempdir;

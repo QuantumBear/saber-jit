@@ -1,6 +1,3 @@
-#![feature(slice_patterns)]
-#![feature(intrinsics)]
-
 extern crate scheme;
 #[macro_use]
 extern crate log;
@@ -17,19 +14,22 @@ use std::env;
 use std::fs::File;
 use std::io::{self, stdin, stdout, Read, Write};
 
+#[cfg(intrinsics)]
 extern "rust-intrinsic" {
     fn breakpoint();
 }
+#[cfg(not(intrinsics))]
+fn breakpoint() { }
 
 fn read_file(path: &str) -> io::Result<String> {
     let mut s = String::new();
-    try!(read_file_with(path, &mut s));
+    read_file_with(path, &mut s)?;
     Ok(s)
 }
 
 fn read_file_with(path: &str, out: &mut String) -> io::Result<()> {
-    let mut f = try!(File::open(path));
-    try!(f.read_to_string(out));
+    let mut f = File::open(path)?;
+    f.read_to_string(out)?;
     Ok(())
 }
 
@@ -45,8 +45,8 @@ fn run_file(path: &str) -> io::Result<()> {
     let heap_size = env::var("SCM_HEAP_SIZE").map(|x| x.parse().unwrap()).unwrap_or(0x10000);
 
     let stdlib_path = env::var("SCM_STDLIB_PATH").ok();
-    let mut src = try!(load_stdlib(stdlib_path.as_ref()));
-    try!(read_file_with(path, &mut src));
+    let mut src = load_stdlib(stdlib_path.as_ref())?;
+    read_file_with(path, &mut src)?;
 
     let mut universe = Universe::new(heap_size);
 
@@ -73,8 +73,8 @@ fn repl() -> io::Result<()> {
     loop {
         let mut line = String::new();
         print!("{}", "> ");
-        try!(stdout().flush());
-        try!(stdin().read_line(&mut line));
+        stdout().flush()?;
+        stdin().read_line(&mut line)?;
         if line.len() == 0 {
             break;
         }
@@ -90,7 +90,7 @@ fn repl() -> io::Result<()> {
 }
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let args: Vec<String> = env::args().collect();
     let args_ref: Vec<&str> = args.iter().skip(1).map(|e| e.as_ref()).collect();
