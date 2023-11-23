@@ -27,11 +27,6 @@ impl Linearize {
         LReg::Virtual(self.vreg_gen)
     }
 
-    fn fresh_label(&mut self) -> LBlockId {
-        self.bid_gen += 1;
-        LBlockId(
-    }
-
     fn emit_mid(&mut self, ir: Lir) {
         self.irs.push(Mid(ir));
     }
