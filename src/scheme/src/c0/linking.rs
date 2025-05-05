@@ -1,9 +1,9 @@
 use super::shared::*;
 use super::codegen::{CompiledModule, make_rust_entry};
-use ast::id::Id;
-use rt::*;
-use rt::oop::*;
-use rt::stackmap::{StackMapTable, StackMapTableInserter};
+use crate::ast::id::Id;
+use crate::rt::*;
+use crate::rt::oop::*;
+use crate::rt::stackmap::{StackMapTable, StackMapTableInserter};
 use assembler::mem::JitMem;
 
 use std::collections::HashMap;

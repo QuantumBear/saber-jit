@@ -1,6 +1,7 @@
 [package]
 name = "scheme"
 version = "0.1.0"
+edition = "2021"
 authors = ["Overmind JIANG <p90eri@gmail.com>"]
 
 [[bin]]

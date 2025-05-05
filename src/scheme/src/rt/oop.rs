@@ -3,7 +3,7 @@
 
 use super::gc::INFO_FRESH_TAG;
 use super::stackmap::OopStackMapOffsets;
-use ast::id::Id;
+use crate::ast::id::Id;
 
 use std::slice;
 use std::ptr;
@@ -28,7 +28,7 @@ pub enum OopTag {
 }
 
 pub fn sizeof_ptrs(nptrs: usize) -> usize {
-    nptrs * 8
+    nptrs * std::mem::size_of::<*const ()>()
 }
 
 #[repr(u16)]
@@ -201,7 +201,7 @@ pub enum GcRef {
 pub struct Closure {
     // *info points directly to the entry field in the InfoTable.
     // See Haskell's `tables-next-to-code` trick.
-    info: *const (),
+    info: UnsafeCell<usize>,
     payloads: [Oop; 0],
 }
 
@@ -219,7 +219,7 @@ impl Closure {
     }
 
     pub unsafe fn entry_word(&self) -> &mut usize {
-        &mut *(&self.info as *const _ as *mut _)
+        unsafe { &mut *self.info.get() }
     }
 
     pub unsafe fn payload_start(&self) -> usize {
@@ -365,8 +365,8 @@ impl IsArray<i64> for I64Array {}
 
 pub struct RawHandle<A> {
     oop: Oop,
-    prev: *mut OopHandle,
-    next: *mut OopHandle,
+    prev: UnsafeCell<*mut OopHandle>,
+    next: UnsafeCell<*mut OopHandle>,
     phantom_data: PhantomData<A>,
 }
 
@@ -402,13 +402,13 @@ impl IsOop for I64Array {}
 impl HandleBlock {
     pub fn new() -> Box<HandleBlock> {
         let mut thiz = Box::new(HandleBlock(RawHandle {
-            oop: NULL_OOP,
-            prev: ptr::null_mut(),
-            next: ptr::null_mut(),
-            phantom_data: PhantomData,
-        }));
-        (*thiz).0.prev = (*thiz).0.as_ptr();
-        (*thiz).0.next = (*thiz).0.as_ptr();
+                    oop: NULL_OOP,
+                    prev: UnsafeCell::new(ptr::null_mut()),
+                    next: UnsafeCell::new(ptr::null_mut()),
+                    phantom_data: PhantomData,
+                }));
+        (*thiz).0.prev = UnsafeCell::new((*thiz).0.as_ptr());
+        (*thiz).0.next = UnsafeCell::new((*thiz).0.as_ptr());
         thiz
     }
 
@@ -435,7 +435,7 @@ impl HandleBlock {
 
 impl<A> RawHandle<A> {
     pub unsafe fn oop(&self) -> &mut Oop {
-        &mut *(&self.oop as *const _ as *mut _)
+        &mut *(self.oop as *mut Oop)
     }
 
     unsafe fn same_ptr(&self, rhs: &OopHandle) -> bool {
@@ -454,21 +454,22 @@ impl<A> RawHandle<A> {
         }
     }
 
-    unsafe fn next<'a, 'b>(&'a self) -> &'b mut OopHandle {
-        &mut *self.next
+    unsafe fn next<'a>(&'a self) -> &'a mut OopHandle {
+        let next_ptr = *self.next.get();
+        next_ptr.as_mut().unwrap()
     }
 
     #[allow(unused)]
     unsafe fn set_next(&self, next: *mut OopHandle) {
-        (&mut *(self as *const _ as *mut Self)).next = next;
     }
 
     unsafe fn prev(&self) -> &mut OopHandle {
-        &mut *self.prev
+        let prev_ptr = *self.prev.get();
+        prev_ptr.as_mut().unwrap()
     }
 
     unsafe fn set_prev(&self, prev: *mut OopHandle) {
-        (&mut *(self as *const _ as *mut Self)).prev = prev;
+        *self.prev.get() = prev;
     }
 
     pub fn as_ptr(&self) -> *mut OopHandle {
@@ -478,11 +479,11 @@ impl<A> RawHandle<A> {
     unsafe fn new(oop: *mut A, head: &OopHandle) -> Box<Self> {
         let thiz = Box::new(RawHandle {
             oop: oop as Oop,
-            prev: head.prev,
-            next: head.as_ptr(),
-            phantom_data: PhantomData,
+            prev: UnsafeCell::new(*head.prev.get()),
+            next: UnsafeCell::new(head as *const _ as *mut _),
+            phantom_data: PhantomData::<A>
         });
-        head.prev().next = RawHandle::<A>::as_ptr(&*thiz);
+        head.prev().next = UnsafeCell::new(thiz.as_ptr());
         (*head).set_prev(thiz.as_ptr());
         thiz
     }
@@ -499,8 +500,8 @@ impl<A> RawHandle<A> {
 impl<A> Drop for RawHandle<A> {
     fn drop(&mut self) {
         unsafe {
-            self.next().prev = self.prev().as_ptr();
-            self.prev().next = self.next().as_ptr();
+            self.next().prev = UnsafeCell::new(self.prev().as_ptr());
+            self.prev().next = UnsafeCell::new(self.next().as_ptr());
         }
     }
 }

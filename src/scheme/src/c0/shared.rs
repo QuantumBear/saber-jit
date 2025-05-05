@@ -1,7 +1,7 @@
-use ast::sexpr::SExpr;
-use ast::id::Id;
-use rt::oop::*;
-use rt::*;
+use crate::ast::sexpr::SExpr;
+use crate::ast::id::Id;
+use crate::rt::oop::*;
+use crate::rt::*;
 
 use std::collections::HashMap;
 
@@ -29,7 +29,7 @@ impl Reloc {
 
     pub fn is_ptr(&self) -> bool {
         use self::Reloc::*;
-        use ast::sexpr::SExpr::*;
+        use crate::ast::sexpr::SExpr::*;
 
         // XXX: Sync this with the oop defs.
         match self {
@@ -54,7 +54,7 @@ impl Reloc {
 }
 
 unsafe fn reify_sexpr(e: &SExpr, u: &Universe) -> Oop {
-    use ast::sexpr::SExpr::*;
+    use crate::ast::sexpr::SExpr::*;
 
     match e {
         &Int(i) => u.new_fixnum(i as isize).as_oop(),

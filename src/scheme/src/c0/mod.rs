@@ -8,8 +8,8 @@ pub mod cgutil;
 
 use self::codegen::{ModuleCompiler, CompiledModule};
 use self::linking::LinkedModule;
-use rt::Universe;
-use ast::nir::ScDefn;
+use crate::rt::Universe;
+use crate::ast::nir::ScDefn;
 
 pub fn compile(scdefns: &[ScDefn], u: &Universe) -> CompiledModule {
     let mut mc = ModuleCompiler::new();

@@ -1,10 +1,10 @@
 /// Naive semi-space copying GC.
 
 use super::{INFO_MARKED_TAG, INFO_FRESH_TAG};
-use rt::Universe;
-use rt::oop::*;
-use rt::oop_utils::*;
-use rt::stackmap::FrameIterator;
+use crate::rt::Universe;
+use crate::rt::oop::*;
+use crate::rt::oop_utils::*;
+use crate::rt::stackmap::FrameIterator;
 
 use std::ptr;
 use std::mem::{swap, transmute};

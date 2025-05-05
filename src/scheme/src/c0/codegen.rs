@@ -1,14 +1,14 @@
 use super::shared::{Reloc, RelocTable, InfoRefs};
 use super::compiled_rt::*;
 use super::cgutil::*;
-use ast::nir::*;
-use ast::id::*;
-use ast::nir::RawNode::*;
-use ast::nir::AllocNode::*;
-use ast::nir::LiteralNode::*;
-use rt::*;
-use rt::oop::*;
-use rt::stackmap::*;
+use crate::ast::nir::*;
+use crate::ast::id::*;
+use crate::ast::nir::RawNode::*;
+use crate::ast::nir::AllocNode::*;
+use crate::ast::nir::LiteralNode::*;
+use crate::rt::*;
+use crate::rt::oop::*;
+use crate::rt::stackmap::*;
 
 use assembler::x64::*;
 use assembler::x64::R64::*;

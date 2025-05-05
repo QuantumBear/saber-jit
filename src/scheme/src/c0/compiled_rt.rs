@@ -1,6 +1,6 @@
-use rt::*;
-use rt::oop::*;
-use rt::oop_utils::*;
+use crate::rt::*;
+use crate::rt::oop::*;
+use crate::rt::oop_utils::*;
 
 use std::mem::transmute;
 
@@ -62,8 +62,8 @@ pub unsafe extern "C" fn alloc_closure(u: &Universe, info_entry: usize, payloads
 }
 
 pub unsafe extern "C" fn compile_module(u: &Universe, module: Oop) -> Oop {
-    use ast::sexpr_to_nir;
-    use c0;
+    use crate::ast::sexpr_to_nir;
+    use crate::c0;
     use std::mem;
 
     let module = u.oop_handle(module);

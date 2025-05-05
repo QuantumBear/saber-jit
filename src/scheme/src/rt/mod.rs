@@ -6,7 +6,7 @@ pub mod gc;
 pub mod inlinesym;
 pub mod stackmap;
 
-use ast::id::Id;
+use crate::ast::id::Id;
 use self::oop::*;
 use self::gc::{GcState, FullGcArgs};
 use self::stackmap::{NativeInvocationChain, FrameIterator, StackMapTable};
