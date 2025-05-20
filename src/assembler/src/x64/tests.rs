@@ -263,12 +263,13 @@ impl ATTSyntax for Push {
         let mut rator = "push";
         let rand = match self {
             &Push::R64(r) => r.as_att_syntax(),
-            &Push::I32(i) => {
-                rator = "pushq";
+            &Push::I32(i) => { // For immediate values
+                // rator = "pushq"; // OLD LINE
+                rator = "push";    // NEW LINE - objdump often uses 'push' for imm32 in 64-bit mode
                 i.as_att_syntax()
             }
-            &Push::M(ref m) => {
-                rator = "pushq";
+            &Push::M(ref m) => { // For memory operands
+                rator = "pushq"; // Keep this as pushq for memory, as it's more common
                 m.as_att_syntax()
             }
         };

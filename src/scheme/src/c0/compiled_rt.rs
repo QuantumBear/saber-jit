@@ -74,5 +74,5 @@ pub unsafe extern "C" fn compile_module(u: &Universe, module: Oop) -> Oop {
     let entry = lm.take_closure("entry");
     // XXX
     mem::forget(lm);
-    *entry.oop()
+    entry.get_oop_payload()
 }

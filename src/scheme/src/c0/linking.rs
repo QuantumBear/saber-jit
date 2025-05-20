@@ -106,6 +106,6 @@ impl LinkedModule {
         u.set_compiled_infos(&mut self.infotables);
         let rust_entry = transmute::<_, JitEntry>(self.jitmem.start() + self.rust_entry_offset);
         let oop_entry = self.take_closure(name);
-        rust_entry(*oop_entry.oop(), u as *const _);
+        rust_entry(oop_entry.get_oop_payload(), u as *const _);
     }
 }

@@ -364,7 +364,7 @@ impl IsArray<i64> for I64Array {}
 // Doubly-linked list of oops. Used to manage root of stacks.
 
 pub struct RawHandle<A> {
-    oop: Oop,
+    oop: UnsafeCell<Oop>,
     prev: UnsafeCell<*mut OopHandle>,
     next: UnsafeCell<*mut OopHandle>,
     phantom_data: PhantomData<A>,
@@ -402,7 +402,7 @@ impl IsOop for I64Array {}
 impl HandleBlock {
     pub fn new() -> Box<HandleBlock> {
         let mut thiz = Box::new(HandleBlock(RawHandle {
-                    oop: NULL_OOP,
+                    oop: UnsafeCell::new(NULL_OOP),
                     prev: UnsafeCell::new(ptr::null_mut()),
                     next: UnsafeCell::new(ptr::null_mut()),
                     phantom_data: PhantomData,
@@ -434,8 +434,14 @@ impl HandleBlock {
 }
 
 impl<A> RawHandle<A> {
-    pub unsafe fn oop(&self) -> &mut Oop {
-        &mut *(self.oop as *mut Oop)
+    // Gets a raw pointer to the oop field for modification (e.g., by GC)
+    pub unsafe fn get_oop_field_ptr(&self) -> *mut Oop {
+        self.oop.get()
+    }
+
+    // Gets the Oop value (the address of the object A)
+    pub unsafe fn get_oop_payload(&self) -> Oop {
+        *self.oop.get()
     }
 
     unsafe fn same_ptr(&self, rhs: &OopHandle) -> bool {
@@ -448,9 +454,9 @@ impl<A> RawHandle<A> {
             if self.same_ptr(curr) {
                 break;
             }
-            let next = curr.next();
-            f(curr.oop());
-            curr = next;
+            let next_handle_ref = curr.next();
+            f(&mut *curr.get_oop_field_ptr()); // Use the new method to get *mut Oop, then deref to &mut Oop
+            curr = next_handle_ref;
         }
     }
 
@@ -478,7 +484,7 @@ impl<A> RawHandle<A> {
 
     unsafe fn new(oop: *mut A, head: &OopHandle) -> Box<Self> {
         let thiz = Box::new(RawHandle {
-            oop: oop as Oop,
+            oop: UnsafeCell::new(oop as Oop),
             prev: UnsafeCell::new(*head.prev.get()),
             next: UnsafeCell::new(head as *const _ as *mut _),
             phantom_data: PhantomData::<A>
@@ -492,8 +498,9 @@ impl<A> RawHandle<A> {
         RawHandle::new(oop_ref as *const _ as *mut A, head)
     }
 
-    pub unsafe fn dup(&self) -> Box<Self> {
-        RawHandle::<A>::new(*self.oop() as *mut _, &*self.as_ptr())
+    pub unsafe fn dup(&self, head_of_block: &OopHandle) -> Box<Self> {
+        let current_object_addr = *self.oop.get(); // or self.get_oop_payload()
+        RawHandle::<A>::new(current_object_addr as *mut A, head_of_block)
     }
 }
 
@@ -509,13 +516,13 @@ impl<A> Drop for RawHandle<A> {
 impl<A> Deref for RawHandle<A> {
     type Target = A;
     fn deref(&self) -> &A {
-        unsafe { &*(self.oop as *const A) }
+        unsafe { &*(*self.oop.get() as *const A) }
     }
 }
 
 impl<A> DerefMut for RawHandle<A> {
     fn deref_mut(&mut self) -> &mut A {
-        unsafe { &mut *(self.oop as *mut A) }
+        unsafe { &mut *(*self.oop.get() as *mut A) }
     }
 }
 
@@ -534,7 +541,7 @@ mod tests {
                 let foo1 = block.new_ref_handle(&oop);
                 let _foo2 = block.new_ref_handle(&oop);
                 let _foo3 = block.new_ref_handle(&oop);
-                assert_eq!(&oop as *const _ as Oop, *foo1.oop());
+                assert_eq!(&oop as *const _ as Oop, foo1.get_oop_payload());
                 assert_eq!(oop.value, foo1.value);
                 assert_eq!(3, block.len());
             }

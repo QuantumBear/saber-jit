@@ -81,6 +81,10 @@ impl Universe {
         &mut *self.gc.get()
     }
 
+    pub fn handle_block_head(&self) -> &OopHandle {
+        self.handle_block.head()
+    }
+
     pub fn iter_frame<'a, 'b>(&'b self, smt: &'a StackMapTable) -> FrameIterator<'a> {
         FrameIterator::new(smt, self.invocation_chain)
     }
@@ -234,7 +238,7 @@ mod tests {
 
         unsafe {
             for i in 0..0x10 {
-                oops.push(u.new_fixnum(i).dup());
+            oops.push(u.new_fixnum(i).dup(u.handle_block_head()));
             }
             assert_eq!(oops.len(), 0x10);
             assert_eq!(u.gc_mut().available_spaces(), 0x100);

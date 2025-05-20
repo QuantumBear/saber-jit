@@ -362,13 +362,13 @@ mod tests {
             p1.car = i1.as_oop();
             p1.cdr = i2.as_oop();
 
-            let i1_loc = *i1.oop();
-            let i2_loc = *i2.oop();
-            let p1_loc = *p1.oop();
+            let i1_loc = i1.get_oop_payload();
+            let i2_loc = i2.get_oop_payload();
+            let p1_loc = p1.get_oop_payload();
             gc.full_gc(0, &mut fga);
-            assert_eq!(*i1.oop() - i1_loc, heap_size);
-            assert_eq!(*i2.oop() - i2_loc, heap_size);
-            assert_eq!(*p1.oop() - p1_loc, heap_size);
+            assert_eq!(i1.get_oop_payload() - i1_loc, heap_size);
+            assert_eq!(i2.get_oop_payload() - i2_loc, heap_size);
+            assert_eq!(p1.get_oop_payload() - p1_loc, heap_size);
         }
     }
 }
