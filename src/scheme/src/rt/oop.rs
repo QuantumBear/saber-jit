@@ -364,7 +364,7 @@ impl IsArray<i64> for I64Array {}
 // Doubly-linked list of oops. Used to manage root of stacks.
 
 pub struct RawHandle<A> {
-    oop: Oop,
+    oop: UnsafeCell<Oop>,
     prev: UnsafeCell<*mut OopHandle>,
     next: UnsafeCell<*mut OopHandle>,
     phantom_data: PhantomData<A>,
@@ -402,7 +402,7 @@ impl IsOop for I64Array {}
 impl HandleBlock {
     pub fn new() -> Box<HandleBlock> {
         let mut thiz = Box::new(HandleBlock(RawHandle {
-                    oop: NULL_OOP,
+                    oop: UnsafeCell::new(NULL_OOP),
                     prev: UnsafeCell::new(ptr::null_mut()),
                     next: UnsafeCell::new(ptr::null_mut()),
                     phantom_data: PhantomData,
@@ -435,7 +435,7 @@ impl HandleBlock {
 
 impl<A> RawHandle<A> {
     pub unsafe fn oop(&self) -> &mut Oop {
-        &mut *(self.oop as *mut Oop)
+        &mut *self.oop.get()
     }
 
     unsafe fn same_ptr(&self, rhs: &OopHandle) -> bool {
@@ -478,7 +478,7 @@ impl<A> RawHandle<A> {
 
     unsafe fn new(oop: *mut A, head: &OopHandle) -> Box<Self> {
         let thiz = Box::new(RawHandle {
-            oop: oop as Oop,
+            oop: UnsafeCell::new(oop as Oop),
             prev: UnsafeCell::new(*head.prev.get()),
             next: UnsafeCell::new(head as *const _ as *mut _),
             phantom_data: PhantomData::<A>
@@ -509,13 +509,13 @@ impl<A> Drop for RawHandle<A> {
 impl<A> Deref for RawHandle<A> {
     type Target = A;
     fn deref(&self) -> &A {
-        unsafe { &*(self.oop as *const A) }
+        unsafe { &*(*self.oop.get() as *const A) }
     }
 }
 
 impl<A> DerefMut for RawHandle<A> {
     fn deref_mut(&mut self) -> &mut A {
-        unsafe { &mut *(self.oop as *mut A) }
+        unsafe { &mut *(*self.oop.get() as *mut A) }
     }
 }
 
