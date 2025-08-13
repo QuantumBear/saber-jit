@@ -257,8 +257,8 @@ pub struct NativeInvocationChain {
 }
 
 impl NativeInvocationChain {
-    unsafe fn next(&self) -> &NativeInvocationChain {
-        &*self.next
+    unsafe fn next(&self) -> *const NativeInvocationChain {
+        self.next
     }
 }
 
@@ -315,11 +315,13 @@ impl<'a> Iterator for FrameIterator<'a> {
                         return None;
                     }
                     NextChain => {
-                        self.frame = Some(Frame::new_read_smt(self.deref_nic().top_rbp,
-                                                              self.deref_nic().top_rip,
-                                                              self.deref_nic().base_rbp,
-                                                              self.smt));
-                        self.chain = self.deref_nic().next();
+                        let nic = self.deref_nic();
+                        let top_rbp = nic.top_rbp;
+                        let top_rip = nic.top_rip;
+                        let base_rbp = nic.base_rbp;
+                        let next_chain = nic.next();
+                        self.frame = Some(Frame::new_read_smt(top_rbp, top_rip, base_rbp, self.smt));
+                        self.chain = next_chain;
                         self.reentry_label = CheckAndYieldFrame;
                     }
                     CheckAndYieldFrame => {
