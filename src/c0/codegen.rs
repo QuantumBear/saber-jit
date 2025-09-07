@@ -10,9 +10,10 @@ use crate::rt::*;
 use crate::rt::oop::*;
 use crate::rt::stackmap::*;
 
-use assembler::x64::*;
-use assembler::x64::R64::*;
-use assembler::emit::{Emit, Label};
+use crate::assembler_compat::x64::*;
+use crate::assembler_compat::x64::R64::*;
+use crate::assembler_compat::emit::{Emit, Label};
+use crate::assembler_compat::emit_nop_until_aligned;
 
 use std::collections::HashMap;
 use std::mem::{size_of};
@@ -329,7 +330,7 @@ impl<'a> NodeCompiler<'a> {
                     .pop(rdx);
                 self.calling_out(stackmap, CallingConv::SyncUniverse, |emit| {
                     emit.mov(rax, alloc_ooparray as i64 )
-                        .call(rax);
+                        .call(&Addr::B(rax));
                 });
             }
             &MkI64Array(ref len, ref fill) => {
@@ -346,7 +347,7 @@ impl<'a> NodeCompiler<'a> {
                     .pop(rdx);
                 self.calling_out(stackmap, CallingConv::SyncUniverse, |emit| {
                     emit.mov(rax, alloc_i64array as i64 )
-                        .call(rax);
+                        .call(&Addr::B(rax));
                 });
             }
             &MkClosure(closure_id) => {
@@ -406,7 +407,7 @@ impl<'a> NodeCompiler<'a> {
 
                 self.calling_out(map0, CallingConv::SyncUniverse, |emit| {
                     emit.mov(rax, alloc_closure as i64 )
-                        .call(rax);
+                        .call(&Addr::B(rax));
                 });
 
                 // Restore the stack ptr.
@@ -471,7 +472,7 @@ impl<'a> NodeCompiler<'a> {
                         }
                     }
                     emit_epilogue(self.emit, false);
-                    self.emit.jmp(&closure_info(CLOSURE_PTR));
+                    self.emit.jmp_addr(&closure_info(CLOSURE_PTR));
                 } else {
                     self.calling_out(stackmap, CallingConv::Internal, |emit| {
                         emit.call(&closure_info(CLOSURE_PTR));
@@ -547,7 +548,7 @@ impl<'a> NodeCompiler<'a> {
                 let mut alloc_ptr_offset = 0;
                 for (ith_node, &(ix, ref _bn)) in bs.iter().enumerate() {
                     self.emit
-                        .lea(TMP, &(rax + alloc_ptr_offset as i32))
+                        .lea_addr(TMP, &(rax + alloc_ptr_offset as i32))
                         .mov(&frame_slot(ix), TMP);
                     alloc_ptr_offset += alloc_sizes[ith_node];
                     map0.set_local_slot(ix, true);
@@ -600,7 +601,7 @@ impl<'a> NodeCompiler<'a> {
                 self.emit
                     .pop(TMP)
                     .mov(TMP, &(TMP + 8))
-                    .lea(TMP, &(rax + TMP * 8 + 16))
+                    .lea_addr(TMP, &(rax + TMP * 8 + 16))
                     .pop(rax)
                     .mov(&Addr::B(TMP), rax);
             }
@@ -620,11 +621,11 @@ impl<'a> NodeCompiler<'a> {
                 match op {
                     PrimOpFF::Add => {
                         self.emit
-                            .add(rax, &(TMP + 8));
+                            .add_addr(rax, &(TMP + 8));
                     }
                     PrimOpFF::Sub => {
                         self.emit
-                            .sub(rax, &(TMP + 8));
+                            .sub_addr(rax, &(TMP + 8));
                     }
                     PrimOpFF::Lt | PrimOpFF::Eq => {
                         self.emit.cmp(rax, &(TMP + 8));
@@ -648,7 +649,7 @@ impl<'a> NodeCompiler<'a> {
                         // Safe to use conv::internal since we don't alloc in display.
                         self.calling_out(stackmap, CallingConv::Internal, |emit| {
                             emit.mov(rax, display_oop as i64 )
-                                .call(rax);
+                                .call(&Addr::B(rax));
                         });
                     }
                     PrimOpO::Panic => {
@@ -659,7 +660,7 @@ impl<'a> NodeCompiler<'a> {
                         // the generated code's stack.
                         self.calling_out(stackmap, CallingConv::SyncUniverse, |emit| {
                             emit.mov(rax, panic as i64)
-                                .call(rax);
+                                .call(&Addr::B(rax));
                         });
                     }
                     PrimOpO::Fixnump => {
@@ -679,7 +680,7 @@ impl<'a> NodeCompiler<'a> {
 
                         self.calling_out(stackmap, CallingConv::SyncUniverse, |emit| {
                             emit.mov(rax, compile_module as i64)
-                                .call(rax);
+                                .call(&Addr::B(rax));
                         });
                     }
                 }
@@ -716,7 +717,7 @@ impl<'a> NodeCompiler<'a> {
             .mov(rsi, alloc_size as i64);
         self.calling_out(map0, CallingConv::SyncUniverse, |emit| {
             emit.mov(rax, full_gc as i64 )
-                .call(rax);
+                .call(&Addr::B(rax));
         });
         for &(_, r) in tmp_regs.iter().rev() {
             // Restore regs.

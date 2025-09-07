@@ -1,6 +1,7 @@
 /// c0: The baseline compiler.
 
 pub mod codegen;
+// pub mod dynasm_codegen;  // Temporarily disabled
 pub mod linking;
 mod compiled_rt;
 mod shared;

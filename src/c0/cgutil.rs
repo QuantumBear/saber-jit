@@ -1,5 +1,5 @@
 use crate::ast::nir::*;
-use assembler::x64::Cond;
+use crate::assembler_compat::x64::Cond;
 
 pub fn op_to_cond(op: PrimOpFF) -> Cond {
     match op {

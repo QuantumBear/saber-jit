@@ -4,7 +4,7 @@ use crate::ast::id::Id;
 use crate::rt::*;
 use crate::rt::oop::*;
 use crate::rt::stackmap::{StackMapTable, StackMapTableInserter};
-use assembler::mem::JitMem;
+use crate::assembler_compat::mem::JitMem;
 
 use std::collections::HashMap;
 use std::mem::transmute;
@@ -24,9 +24,9 @@ impl LinkedModule {
     pub unsafe fn new(mut cm: CompiledModule, u: &Universe) -> Self {
         let (rust_entry_offset, rust_entry_end_offset) = make_rust_entry(&mut cm.emit);
 
-        let mut jitmem = JitMem::new(cm.emit.as_ref());
+        let mut jitmem = JitMem::new(cm.emit.as_ref()).expect("Failed to create JitMem");
         let start = jitmem.start();
-        let smti = StackMapTableInserter::new(start);
+        let smti = StackMapTableInserter::new(start as usize);
 
         let mut global_closures: GlobalTable = HashMap::new();
 
@@ -36,7 +36,7 @@ impl LinkedModule {
 
         // Make closures.
         for (func_name, ref func) in &cm.functions {
-            let info = InfoTable::from_entry(start + func.entry_offset);
+            let info = InfoTable::from_entry(start.wrapping_add(func.entry_offset) as usize);
             smti.extend_with_smo(&mut smt, func.entry_offset, &func.smo);
             info.set_smo(func.smo.to_owned());
             infotables.push(info as *const _);
@@ -45,8 +45,8 @@ impl LinkedModule {
 
             debug!("Closure {:?}: [{:#x},{:#x})",
                    func_name,
-                   start + func.entry_offset,
-                   start + func.end_offset);
+                   start.wrapping_add(func.entry_offset) as usize,
+                   start.wrapping_add(func.end_offset) as usize);
             let gcrefs = func.relocs
                              .iter()
                              .map(|&(reloc_offset, _)| GcRef::OopConst(reloc_offset as u32))
@@ -59,23 +59,26 @@ impl LinkedModule {
             info.set_gcrefs(gcrefs);
         }
         debug!("RustEntry: [{:#x},{:#x})",
-               start + rust_entry_offset,
-               start + rust_entry_end_offset);
+               start.wrapping_add(rust_entry_offset) as usize,
+               start.wrapping_add(rust_entry_end_offset) as usize);
 
         // Make oop consts.
         for func in cm.functions.values() {
             let entry_offset = func.entry_offset;
+            // TODO: Fix relocation system
+            /*
             for &(reloc_offset, ref reloc) in &func.relocs {
                 let val = reloc.reify(&global_closures, u);  // Allocates
-                NativeEndian::write_u64(&mut jitmem.as_mut()[entry_offset + reloc_offset..],
-                                        val as u64);
+                // NativeEndian::write_u64(&mut jitmem.as_mut()[entry_offset + reloc_offset..],
+                //                         val as u64);
             }
+            */
         }
 
         infotables.shrink_to_fit();
 
         LinkedModule {
-            jitmem: jitmem,
+            jitmem,
             rust_entry_offset: rust_entry_offset,
             global_closures: Some(global_closures),
             smt: smt,
@@ -104,7 +107,7 @@ impl LinkedModule {
     pub unsafe fn call_nullary(&mut self, u: &mut Universe, name: &str) {
         u.set_smt(&self.smt);
         u.set_compiled_infos(&mut self.infotables);
-        let rust_entry = transmute::<_, JitEntry>(self.jitmem.start() + self.rust_entry_offset);
+        let rust_entry = transmute::<_, JitEntry>(self.jitmem.start().wrapping_add(self.rust_entry_offset));
         let oop_entry = self.take_closure(name);
         rust_entry(*oop_entry.oop(), u as *const _);
     }

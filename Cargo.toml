@@ -18,6 +18,9 @@ bit-vec = "*"
 env_logger = "*"
 log = "*"
 fnv = "*"
+dynasm = "1.2.3"
+dynasmrt = "1.2.3"
 
-[dependencies.assembler]
-path = "../assembler"
+# Removed custom assembler - using dynasm-rs directly
+# [dependencies.assembler]
+# path = "../assembler"
